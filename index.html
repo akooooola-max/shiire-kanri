@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>仕入れ管理</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --line: #e6e8ec;
+    --text: #1c2430;
+    --sub: #6b7683;
+    --accent: #5b6ef5;
+    --green: #17a673;
+    --red: #e05656;
+    --amber: #e0932e;
+    --shadow: 0 1px 3px rgba(20,30,50,.06), 0 4px 16px rgba(20,30,50,.05);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding-bottom: 90px;
+  }
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    padding: 16px 18px 14px;
+    position: sticky; top: 0; z-index: 20;
+  }
+  header h1 { margin: 0; font-size: 19px; letter-spacing: .02em; }
+  .titlebar { display: flex; align-items: center; justify-content: space-between; }
+  .title-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .sync-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .sync-badge.local { background: #eef0f4; color: var(--sub); }
+  .sync-badge.connecting { background: #fff3e6; color: var(--amber); }
+  .sync-badge.ok { background: #e7f6ef; color: var(--green); }
+  .sync-badge.error { background: #fdeaea; color: var(--red); }
+  .menu { position: relative; }
+  #menuBtn {
+    border: 1px solid var(--line); background: var(--bg); color: var(--sub);
+    width: 38px; height: 34px; border-radius: 10px; font-size: 20px; line-height: 1; cursor: pointer;
+  }
+  .menu-list {
+    display: none; position: absolute; right: 0; top: 40px; z-index: 25;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: var(--shadow); overflow: hidden; min-width: 180px;
+  }
+  .menu-list.show { display: block; }
+  .menu-list button {
+    display: block; width: 100%; text-align: left; padding: 12px 15px; border: none;
+    background: none; font-size: 14px; color: var(--text); cursor: pointer; font-family: inherit;
+  }
+  .menu-list button:hover { background: var(--bg); }
+  .menu-list button + button { border-top: 1px solid var(--line); }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .stat {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 9px 8px;
+    text-align: center;
+  }
+  .stat .label { font-size: 10.5px; color: var(--sub); }
+  .stat .val { font-size: 15px; font-weight: 700; margin-top: 2px; white-space: nowrap; }
+  .stat .val.small { font-size: 13px; }
+  /* 集計カードを色で区別 */
+  .stat.stock  { background: #eef1ff; border-color: #d7ddff; }
+  .stat.stock  .val { color: var(--accent); }
+  .stat.cost   { background: #fff3e6; border-color: #ffe1c2; }
+  .stat.cost   .val { color: var(--amber); }
+  .stat.sales  { background: #e9f5ff; border-color: #cfe8ff; }
+  .stat.sales  .val { color: #2b8fd6; }
+  .stat.profit { background: #e7f6ef; border-color: #c7ecd9; }
+  .stat.profit .val { color: var(--green); }
+
+  .tabs {
+    display: flex; gap: 6px; padding: 12px 18px 0; max-width: 720px; margin: 0 auto;
+  }
+  .tab {
+    flex: 1; text-align: center; padding: 8px 0; font-size: 13px; font-weight: 600;
+    color: var(--sub); background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; cursor: pointer; user-select: none;
+  }
+  .tab.active { color: #fff; background: var(--accent); border-color: var(--accent); }
+
+  main { max-width: 720px; margin: 0 auto; padding: 14px 18px; }
+
+  .item {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow); margin-bottom: 14px; overflow: hidden;
+    display: flex; border-left: 5px solid var(--accent);
+  }
+  .item.is-sold { border-left-color: var(--green); }
+  .item.is-stock { border-left-color: var(--accent);
+  }
+  .item .thumb {
+    width: 108px; min-width: 108px; background: #eef0f4; cursor: pointer;
+    background-size: cover; background-position: center;
+    display: flex; align-items: center; justify-content: center;
+    color: #b7bdc7; font-size: 11px;
+  }
+  .item .body { flex: 1; padding: 12px 14px; min-width: 0; }
+  .item .name { font-weight: 700; font-size: 15px; margin: 0 0 3px; word-break: break-word; }
+  .item .meta { font-size: 12px; color: var(--sub); }
+  .item .memo { font-size: 12px; color: var(--sub); margin-top: 4px; word-break: break-word; }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px;
+    border-radius: 999px; margin-bottom: 6px;
+  }
+  .badge.stock { background: #eef1ff; color: var(--accent); }
+  .badge.sold { background: #e7f6ef; color: var(--green); }
+
+  .figs { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; }
+  .figs .f .k { font-size: 10.5px; color: var(--sub); }
+  .figs .f .v { font-weight: 700; }
+  .figs .f .v.pos { color: var(--green); }
+  .figs .f .v.neg { color: var(--red); }
+  .profit-chip { padding: 3px 12px 4px; border-radius: 10px; margin: -1px 0; }
+  .profit-chip .k { opacity: .85; }
+  .profit-chip.is-pos { background: #e7f6ef; }
+  .profit-chip.is-pos .v { color: var(--green); }
+  .profit-chip.is-neg { background: #fdeaea; }
+  .profit-chip.is-neg .v { color: var(--red); }
+
+  .actions { display: flex; gap: 8px; margin-top: 11px; }
+  .actions button {
+    font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer;
+  }
+  .actions button.sell { background: var(--green); color: #fff; border-color: var(--green); }
+  .actions button.undo { color: var(--amber); }
+  .actions button.del { color: var(--red); }
+
+  .empty { text-align: center; color: var(--sub); padding: 60px 20px; font-size: 14px; }
+
+  .fab {
+    position: fixed; right: 20px; bottom: 22px; z-index: 30;
+    width: 58px; height: 58px; border-radius: 50%; border: none;
+    background: var(--accent); color: #fff; font-size: 30px; line-height: 58px;
+    box-shadow: 0 6px 20px rgba(91,110,245,.45); cursor: pointer;
+  }
+
+  /* modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(20,26,40,.45); z-index: 40;
+    display: none; align-items: flex-end; justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .sheet {
+    background: var(--card); width: 100%; max-width: 560px; border-radius: 20px 20px 0 0;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+    max-height: 92vh; overflow-y: auto;
+  }
+  .sheet h2 { margin: 2px 0 16px; font-size: 17px; }
+  label.field { display: block; margin-bottom: 14px; }
+  label.field .l { font-size: 12.5px; color: var(--sub); font-weight: 600; margin-bottom: 5px; display: block; }
+  input, textarea {
+    width: 100%; font-size: 16px; font-family: inherit; color: var(--text);
+    padding: 11px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--bg);
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  .photo-picker {
+    border: 1.5px dashed var(--line); border-radius: 14px; padding: 0; overflow: hidden;
+    background: var(--bg); text-align: center; cursor: pointer; position: relative;
+  }
+  .photo-picker .ph { padding: 26px 10px; color: var(--sub); font-size: 13px; }
+  .photo-picker img { width: 100%; display: block; max-height: 240px; object-fit: cover; }
+  .photo-picker input { display: none; }
+  .row2 { display: flex; gap: 12px; }
+  .row2 > * { flex: 1; }
+  .sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
+  .btn {
+    flex: 1; padding: 14px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700;
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.ghost { background: var(--bg); color: var(--sub); border: 1px solid var(--line); }
+
+  .setup-lead { font-size: 13px; color: var(--sub); margin: -6px 0 14px; }
+  .setup-msg { font-size: 13px; margin: 4px 0 10px; min-height: 18px; }
+  .setup-msg.err { color: var(--red); }
+  .setup-msg.ok { color: var(--green); }
+  .guide { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; }
+  .guide summary { font-size: 13px; font-weight: 700; cursor: pointer; color: var(--accent); }
+  .guide ol { margin: 12px 0 4px; padding-left: 20px; font-size: 13px; color: var(--text); }
+  .guide li { margin-bottom: 9px; line-height: 1.6; }
+  .guide .mono { font-family: ui-monospace, monospace; font-size: 12px; background: #eef0f4; padding: 1px 5px; border-radius: 5px; }
+  .guide .rules { display: block; white-space: pre; overflow-x: auto; background: #1c2430; color: #d8e0ea; padding: 10px 12px; border-radius: 8px; font-size: 11px; margin-top: 6px; }
+  .viewer {
+    position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 60;
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  .viewer.show { display: flex; }
+  .viewer img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="titlebar">
+    <div class="title-left">
+      <h1>仕入れ管理</h1>
+      <span class="sync-badge local" id="syncBadge">● この端末のみ</span>
+    </div>
+    <div class="menu">
+      <button id="menuBtn" aria-label="メニュー">⋯</button>
+      <div class="menu-list" id="menuList">
+        <button id="mSync">📱 同期設定（複数端末）</button>
+        <button id="mCsv">CSVで書き出し</button>
+        <button id="mBackup">バックアップを保存</button>
+        <button id="mRestore">バックアップから復元</button>
+      </div>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat stock"><div class="label">在庫数</div><div class="val" id="s-stock">0</div></div>
+    <div class="stat cost"><div class="label">仕入合計</div><div class="val small" id="s-cost">¥0</div></div>
+    <div class="stat sales"><div class="label">売上合計</div><div class="val small" id="s-sales">¥0</div></div>
+    <div class="stat profit"><div class="label">利益合計</div><div class="val small" id="s-profit">¥0</div></div>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-f="all">すべて</div>
+  <div class="tab" data-f="stock">在庫</div>
+  <div class="tab" data-f="sold">販売済み</div>
+</div>
+
+<main id="list"></main>
+
+<button class="fab" id="fab">＋</button>
+
+<!-- 追加/編集シート -->
+<div class="overlay" id="editOverlay">
+  <div class="sheet">
+    <h2 id="editTitle">仕入れを追加</h2>
+    <label class="photo-picker" id="picker">
+      <div class="ph" id="pickerPh">＋ 写真を撮る / 選ぶ</div>
+      <img id="pickerImg" style="display:none">
+      <input type="file" id="photo" accept="image/*">
+    </label>
+    <label class="field">
+      <span class="l">商品名</span>
+      <input type="text" id="f-name" placeholder="例：ヴィンテージ食器">
+    </label>
+    <div class="row2">
+      <label class="field">
+        <span class="l">仕入れ日</span>
+        <input type="date" id="f-buydate">
+      </label>
+      <label class="field">
+        <span class="l">仕入れ値（円）</span>
+        <input type="number" id="f-buyprice" inputmode="numeric" placeholder="0">
+      </label>
+    </div>
+    <label class="field">
+      <span class="l">メモ（仕入先など・任意）</span>
+      <textarea id="f-memo" placeholder="任意"></textarea>
+    </label>
+    <div class="sheet-actions">
+      <button class="btn ghost" id="editCancel">キャンセル</button>
+      <button class="btn primary" id="editSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 販売シート -->
+<div class="overlay" id="sellOverlay">
+  <div class="sheet">
+    <h2>販売を記録</h2>
+    <div class="row2">
+      <label class="field">
+        <span class="l">販売日</span>
+        <input type="date" id="s-selldate">
+      </label>
+      <label class="field">
+        <span class="l">販売価格（円）</span>
+        <input type="number" id="s-sellprice" inputmode="numeric" placeholder="0">
+      </label>
+    </div>
+    <label class="field">
+      <span class="l">その他経費（送料・手数料など・任意）</span>
+      <input type="number" id="s-fee" inputmode="numeric" placeholder="0">
+    </label>
+    <div class="sheet-actions">
+      <button class="btn ghost" id="sellCancel">キャンセル</button>
+      <button class="btn primary" id="sellSave">販売済みにする</button>
+    </div>
+  </div>
+</div>
+
+<div class="viewer" id="viewer"><img id="viewerImg"></div>
+<input type="file" id="restoreFile" accept="application/json,.json" style="display:none">
+
+<!-- 同期設定シート -->
+<div class="overlay" id="setupOverlay">
+  <div class="sheet">
+    <h2>複数端末で同期</h2>
+    <p class="setup-lead">スマホとPCなど、複数の端末で同じデータを見られるようにします。無料のFirebaseを使います。</p>
+
+    <details class="guide" id="setupGuide">
+      <summary>はじめての設定手順（初回のみ・約5分）</summary>
+      <ol>
+        <li><b>Firebase</b>（<span class="mono">console.firebase.google.com</span>）にGoogleアカウントでログイン</li>
+        <li>「プロジェクトを作成」で新しいプロジェクトを作る（名前は何でもOK）</li>
+        <li>左メニュー <b>Build → Authentication</b> →「始める」→ <b>Anonymous（匿名）</b>を有効にする</li>
+        <li>左メニュー <b>Build → Firestore Database</b> →「データベースを作成」→ 本番モードで作成</li>
+        <li>Firestoreの「ルール」タブを開き、下記に書き換えて「公開」：<br>
+          <code class="rules">rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    match /spaces/{s}/items/{i} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</code></li>
+        <li>歯車 <b>⚙ → プロジェクトの設定</b> → 下の「マイアプリ」で <b>&lt;/&gt;（ウェブ）</b> を追加</li>
+        <li>表示される <span class="mono">const firebaseConfig = {…}</span> の <b>{…} 部分をコピー</b>し、下の欄に貼り付け</li>
+      </ol>
+    </details>
+
+    <label class="field">
+      <span class="l">Firebase設定を貼り付け</span>
+      <textarea id="fbConfig" placeholder='{ apiKey: "...", authDomain: "...", projectId: "...", ... }' style="min-height:120px;font-family:ui-monospace,monospace;font-size:13px;"></textarea>
+    </label>
+    <label class="field">
+      <span class="l">同期コード（別の端末では同じコードを入れる）</span>
+      <input type="text" id="syncCode" placeholder="自動生成されます">
+    </label>
+    <div id="setupMsg" class="setup-msg"></div>
+    <div class="sheet-actions">
+      <button class="btn ghost" id="setupCancel">閉じる</button>
+      <button class="btn primary" id="setupConnect">接続する</button>
+    </div>
+    <button class="btn ghost" id="setupCopy" style="width:100%;margin-top:10px;display:none;">この端末の設定を他の端末用にコピー</button>
+    <button class="btn ghost" id="setupDisconnect" style="width:100%;margin-top:10px;display:none;color:var(--red);">同期を解除（この端末のみに戻す）</button>
+  </div>
+</div>
+
+<script>
+const DB_NAME = 'shiireDB', STORE = 'items';
+let db, editingId = null, sellingId = null, pendingPhoto = null, filter = 'all';
+
+const yen = n => '¥' + (Number(n)||0).toLocaleString('ja-JP');
+const today = () => new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD ローカル
+const fmtDate = s => s ? s.replace(/-/g,'/').slice(5) : '';
+
+// ---- ローカル保存（IndexedDB）----
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, 1);
+    r.onupgradeneeded = e => {
+      e.target.result.createObjectStore(STORE, { keyPath: 'id' });
+    };
+    r.onsuccess = e => { db = e.target.result; res(); };
+    r.onerror = e => rej(e);
+  });
+}
+function tx(m) { return db.transaction(STORE, m).objectStore(STORE); }
+function idbGetAll() {
+  return new Promise(res => { tx('readonly').getAll().onsuccess = e => res(e.target.result); });
+}
+function idbPut(item) {
+  return new Promise(res => { tx('readwrite').put(item).onsuccess = () => res(); });
+}
+function idbDel(id) {
+  return new Promise(res => { tx('readwrite').delete(id).onsuccess = () => res(); });
+}
+
+// ---- 保存先の切り替え（ローカル / クラウド）----
+let storeMode = 'local';       // 'local' または 'cloud'
+let cloudCol = null;           // Firestore コレクション参照
+let cloudItems = [];           // クラウドの最新スナップショット
+let cloudUnsub = null;
+
+async function getAll() {
+  return storeMode === 'cloud' ? cloudItems.slice() : idbGetAll();
+}
+async function put(item) {
+  if (storeMode === 'cloud') { await cloudCol.doc(String(item.id)).set(item); return; }
+  return idbPut(item);
+}
+async function del(id) {
+  if (storeMode === 'cloud') { await cloudCol.doc(String(id)).delete(); return; }
+  return idbDel(id);
+}
+
+// ---- クラウド同期（Firebase）----
+function setSync(state) {
+  const b = document.getElementById('syncBadge');
+  const map = { local: '● この端末のみ', connecting: '● 接続中…', ok: '● 同期中', error: '● 同期エラー' };
+  b.className = 'sync-badge ' + state;
+  b.textContent = map[state] || map.local;
+}
+
+let sdkPromise = null;
+function loadFirebaseSDK() {
+  if (sdkPromise) return sdkPromise;
+  const base = 'https://www.gstatic.com/firebasejs/10.12.5/';
+  const files = ['firebase-app-compat.js', 'firebase-auth-compat.js', 'firebase-firestore-compat.js'];
+  const loadScript = src => new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res;
+    s.onerror = () => rej(new Error('SDKの読み込みに失敗（ネット接続を確認してください）'));
+    document.head.appendChild(s);
+  });
+  sdkPromise = files.reduce((p, f) => p.then(() => loadScript(base + f)), Promise.resolve());
+  return sdkPromise;
+}
+
+async function migrateLocalToCloud(syncCode) {
+  const key = 'shiireMigrated_' + syncCode;
+  if (localStorage.getItem(key)) return;
+  try {
+    const locals = await idbGetAll();
+    for (const it of locals) { try { await cloudCol.doc(String(it.id)).set(it); } catch (_) {} }
+  } catch (_) {}
+  localStorage.setItem(key, '1');
+}
+
+async function initCloud(config, syncCode) {
+  setSync('connecting');
+  try {
+    await loadFirebaseSDK();
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    await firebase.auth().signInAnonymously();
+    const fs = firebase.firestore();
+    try { await fs.enablePersistence({ synchronizeTabs: true }); } catch (_) {}
+    cloudCol = fs.collection('spaces').doc(syncCode).collection('items');
+    await migrateLocalToCloud(syncCode);
+    if (cloudUnsub) cloudUnsub();
+    cloudUnsub = cloudCol.onSnapshot(
+      snap => { cloudItems = snap.docs.map(d => d.data()); storeMode = 'cloud'; setSync('ok'); render(); },
+      err => { console.error(err); setSync('error'); }
+    );
+    storeMode = 'cloud';
+    return true;
+  } catch (e) {
+    console.error(e);
+    setSync('error');
+    storeMode = 'local';
+    render();
+    throw e;
+  }
+}
+
+// 画像を縮小してJPEG化（保存容量を抑える）
+function resizeImage(file, max = 1000) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      let { width: w, height: h } = img;
+      if (w > max || h > max) {
+        if (w > h) { h = h * max / w; w = max; }
+        else { w = w * max / h; h = max; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      res(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function render() {
+  const items = (await getAll()).sort((a, b) => (b.buydate || '').localeCompare(a.buydate) || b.id - a.id);
+
+  // 集計
+  let stock = 0, cost = 0, sales = 0, profit = 0;
+  items.forEach(it => {
+    cost += Number(it.buyprice) || 0;
+    if (it.sold) {
+      sales += Number(it.sellprice) || 0;
+      profit += (Number(it.sellprice)||0) - (Number(it.buyprice)||0) - (Number(it.fee)||0);
+    } else stock++;
+  });
+  document.getElementById('s-stock').textContent = stock;
+  document.getElementById('s-cost').textContent = yen(cost);
+  document.getElementById('s-sales').textContent = yen(sales);
+  const pe = document.getElementById('s-profit');
+  pe.textContent = yen(profit);
+  pe.style.color = profit < 0 ? 'var(--red)' : 'var(--green)';
+
+  const shown = items.filter(it => filter === 'all' || (filter === 'sold' ? it.sold : !it.sold));
+  const list = document.getElementById('list');
+
+  if (!shown.length) {
+    list.innerHTML = '<div class="empty">' +
+      (items.length ? 'この条件の商品はありません' : '右下の＋から仕入れを追加しましょう') + '</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  shown.forEach(it => {
+    const p = (Number(it.sellprice)||0) - (Number(it.buyprice)||0) - (Number(it.fee)||0);
+    const el = document.createElement('div');
+    el.className = 'item ' + (it.sold ? 'is-sold' : 'is-stock');
+    const thumb = it.photo
+      ? `<div class="thumb" style="background-image:url('${it.photo}')" data-view="${it.id}"></div>`
+      : `<div class="thumb">写真なし</div>`;
+
+    let figs = `<div class="f"><div class="k">仕入れ値</div><div class="v">${yen(it.buyprice)}</div></div>`;
+    if (it.sold) {
+      figs += `<div class="f"><div class="k">販売価格</div><div class="v">${yen(it.sellprice)}</div></div>`;
+      if (Number(it.fee)) figs += `<div class="f"><div class="k">経費</div><div class="v">${yen(it.fee)}</div></div>`;
+      figs += `<div class="f profit-chip ${p<0?'is-neg':'is-pos'}"><div class="k">利益</div><div class="v">${yen(p)}</div></div>`;
+    }
+
+    const meta = it.sold
+      ? `仕入 ${fmtDate(it.buydate)} → 販売 ${fmtDate(it.selldate)}`
+      : `仕入れ日 ${fmtDate(it.buydate)}`;
+
+    el.innerHTML = thumb + `<div class="body">
+      <span class="badge ${it.sold?'sold':'stock'}">${it.sold?'販売済み':'在庫'}</span>
+      <p class="name">${escapeHtml(it.name||'（名称未設定）')}</p>
+      <div class="meta">${meta}</div>
+      ${it.memo?`<div class="memo">${escapeHtml(it.memo)}</div>`:''}
+      <div class="figs">${figs}</div>
+      <div class="actions">
+        ${it.sold
+          ? `<button class="undo" data-undo="${it.id}">在庫に戻す</button>`
+          : `<button class="sell" data-sell="${it.id}">販売する</button>`}
+        <button data-edit="${it.id}">編集</button>
+        <button class="del" data-del="${it.id}">削除</button>
+      </div>
+    </div>`;
+    list.appendChild(el);
+  });
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// ---- シート操作 ----
+const editOverlay = document.getElementById('editOverlay');
+function openEdit(item) {
+  editingId = item ? item.id : null;
+  pendingPhoto = item ? item.photo : null;
+  document.getElementById('editTitle').textContent = item ? '仕入れを編集' : '仕入れを追加';
+  document.getElementById('f-name').value = item ? (item.name||'') : '';
+  document.getElementById('f-buydate').value = item ? item.buydate : today();
+  document.getElementById('f-buyprice').value = item ? item.buyprice : '';
+  document.getElementById('f-memo').value = item ? (item.memo||'') : '';
+  setPickerImg(pendingPhoto);
+  editOverlay.classList.add('show');
+}
+function setPickerImg(src) {
+  const img = document.getElementById('pickerImg'), ph = document.getElementById('pickerPh');
+  if (src) { img.src = src; img.style.display = 'block'; ph.style.display = 'none'; }
+  else { img.style.display = 'none'; ph.style.display = 'block'; }
+}
+document.getElementById('photo').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  pendingPhoto = await resizeImage(file);
+  setPickerImg(pendingPhoto);
+});
+document.getElementById('fab').onclick = () => openEdit(null);
+document.getElementById('editCancel').onclick = () => editOverlay.classList.remove('show');
+document.getElementById('editSave').onclick = async () => {
+  const name = document.getElementById('f-name').value.trim();
+  const buyprice = document.getElementById('f-buyprice').value;
+  if (!name && !buyprice && !pendingPhoto) { editOverlay.classList.remove('show'); return; }
+  const base = editingId ? (await getAll()).find(i => i.id === editingId) : {};
+  const item = {
+    id: editingId || Date.now(),
+    name,
+    buydate: document.getElementById('f-buydate').value || today(),
+    buyprice: Number(buyprice) || 0,
+    memo: document.getElementById('f-memo').value.trim(),
+    photo: pendingPhoto,
+    sold: base.sold || false,
+    selldate: base.selldate || null,
+    sellprice: base.sellprice || null,
+    fee: base.fee || 0,
+  };
+  await put(item);
+  editOverlay.classList.remove('show');
+  render();
+};
+
+// 販売シート
+const sellOverlay = document.getElementById('sellOverlay');
+function openSell(id) {
+  sellingId = id;
+  document.getElementById('s-selldate').value = today();
+  document.getElementById('s-sellprice').value = '';
+  document.getElementById('s-fee').value = '';
+  sellOverlay.classList.add('show');
+}
+document.getElementById('sellCancel').onclick = () => sellOverlay.classList.remove('show');
+document.getElementById('sellSave').onclick = async () => {
+  const item = (await getAll()).find(i => i.id === sellingId);
+  if (!item) return;
+  item.sold = true;
+  item.selldate = document.getElementById('s-selldate').value || today();
+  item.sellprice = Number(document.getElementById('s-sellprice').value) || 0;
+  item.fee = Number(document.getElementById('s-fee').value) || 0;
+  await put(item);
+  sellOverlay.classList.remove('show');
+  render();
+};
+
+// リスト内クリック
+document.getElementById('list').addEventListener('click', async e => {
+  const t = e.target;
+  if (t.dataset.sell) return openSell(Number(t.dataset.sell));
+  if (t.dataset.edit) return openEdit((await getAll()).find(i => i.id === Number(t.dataset.edit)));
+  if (t.dataset.undo) {
+    const item = (await getAll()).find(i => i.id === Number(t.dataset.undo));
+    item.sold = false; item.selldate = null; item.sellprice = null; item.fee = 0;
+    await put(item); render(); return;
+  }
+  if (t.dataset.del) {
+    if (confirm('この商品を削除しますか？')) { await del(Number(t.dataset.del)); render(); }
+    return;
+  }
+  if (t.dataset.view) {
+    const item = (await getAll()).find(i => i.id === Number(t.dataset.view));
+    if (item && item.photo) {
+      document.getElementById('viewerImg').src = item.photo;
+      document.getElementById('viewer').classList.add('show');
+    }
+  }
+});
+document.getElementById('viewer').onclick = () => document.getElementById('viewer').classList.remove('show');
+
+// タブ
+document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  filter = tab.dataset.f;
+  render();
+});
+
+// オーバーレイ背景タップで閉じる
+[editOverlay, sellOverlay].forEach(o => o.addEventListener('click', e => {
+  if (e.target === o) o.classList.remove('show');
+}));
+
+// ---- メニュー：CSV / バックアップ / 復元 ----
+const menuList = document.getElementById('menuList');
+document.getElementById('menuBtn').onclick = e => { e.stopPropagation(); menuList.classList.toggle('show'); };
+document.addEventListener('click', () => menuList.classList.remove('show'));
+
+function download(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+const stamp = () => new Date().toLocaleDateString('sv-SE');
+
+document.getElementById('mCsv').onclick = async () => {
+  const items = (await getAll()).sort((a,b) => (a.buydate||'').localeCompare(b.buydate||''));
+  const head = ['商品名','仕入れ日','仕入れ値','状態','販売日','販売価格','経費','利益','メモ'];
+  const rows = items.map(it => {
+    const profit = it.sold ? (Number(it.sellprice)||0)-(Number(it.buyprice)||0)-(Number(it.fee)||0) : '';
+    return [it.name||'', it.buydate||'', Number(it.buyprice)||0, it.sold?'販売済み':'在庫',
+            it.selldate||'', it.sold?(Number(it.sellprice)||0):'', it.sold?(Number(it.fee)||0):'',
+            profit, (it.memo||'').replace(/\n/g,' ')];
+  });
+  const esc = v => `"${String(v).replace(/"/g,'""')}"`;
+  const csv = '﻿' + [head, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+  download(`仕入れ管理_${stamp()}.csv`, csv, 'text/csv;charset=utf-8');
+};
+
+document.getElementById('mBackup').onclick = async () => {
+  const items = await getAll();
+  download(`仕入れ管理_バックアップ_${stamp()}.json`, JSON.stringify(items), 'application/json');
+};
+
+document.getElementById('mRestore').onclick = () => document.getElementById('restoreFile').click();
+document.getElementById('restoreFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data)) throw new Error();
+    if (!confirm(`${data.length}件を読み込みます。同じ商品は上書きされます。よろしいですか？`)) { e.target.value=''; return; }
+    for (const it of data) if (it && it.id != null) await put(it);
+    render();
+    alert('復元しました。');
+  } catch { alert('このファイルは読み込めませんでした。'); }
+  e.target.value = '';
+});
+
+// ---- 同期設定シート ----
+const setupOverlay = document.getElementById('setupOverlay');
+function genCode() { return Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 8); }
+
+function parseConfig(text) {
+  const m = text.trim().match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('設定が見つかりません。{ } を含めて貼り付けてください。');
+  let obj;
+  try { obj = (new Function('return (' + m[0] + ')'))(); }
+  catch (_) { throw new Error('設定の形式が正しくありません。もう一度コピーし直してください。'); }
+  if (obj && obj.config && obj.syncCode) return { config: obj.config, syncCode: obj.syncCode };
+  if (!obj || !obj.apiKey || !obj.projectId) throw new Error('apiKey / projectId が見つかりません。設定全体を貼り付けてください。');
+  return { config: obj, syncCode: null };
+}
+
+function openSetup() {
+  const saved = localStorage.getItem('shiireFb');
+  const connected = storeMode === 'cloud';
+  document.getElementById('setupMsg').textContent = '';
+  document.getElementById('setupMsg').className = 'setup-msg';
+  if (saved) {
+    try {
+      const { config, syncCode } = JSON.parse(saved);
+      document.getElementById('fbConfig').value = JSON.stringify(config, null, 2);
+      document.getElementById('syncCode').value = syncCode;
+    } catch (_) {}
+  } else {
+    if (!document.getElementById('syncCode').value) document.getElementById('syncCode').value = genCode();
+    document.getElementById('setupGuide').open = true;
+  }
+  document.getElementById('setupCopy').style.display = connected ? 'block' : 'none';
+  document.getElementById('setupDisconnect').style.display = connected ? 'block' : 'none';
+  setupOverlay.classList.add('show');
+}
+document.getElementById('mSync').onclick = openSetup;
+document.getElementById('setupCancel').onclick = () => setupOverlay.classList.remove('show');
+
+document.getElementById('setupConnect').onclick = async () => {
+  const msg = document.getElementById('setupMsg');
+  msg.className = 'setup-msg';
+  let parsed;
+  try { parsed = parseConfig(document.getElementById('fbConfig').value); }
+  catch (e) { msg.className = 'setup-msg err'; msg.textContent = e.message; return; }
+  const code = (parsed.syncCode || document.getElementById('syncCode').value || genCode()).trim();
+  document.getElementById('syncCode').value = code;
+  msg.textContent = '接続しています…';
+  try {
+    localStorage.setItem('shiireFb', JSON.stringify({ config: parsed.config, syncCode: code }));
+    await initCloud(parsed.config, code);
+    msg.className = 'setup-msg ok';
+    msg.textContent = '同期しました。他の端末でも同じ設定・同じ同期コードを入れてください。';
+    document.getElementById('setupCopy').style.display = 'block';
+    document.getElementById('setupDisconnect').style.display = 'block';
+  } catch (e) {
+    msg.className = 'setup-msg err';
+    msg.textContent = '接続に失敗：' + (e.message || e) + '（Authの匿名ログインとFirestoreのルールを確認してください）';
+  }
+};
+
+document.getElementById('setupCopy').onclick = async () => {
+  const saved = localStorage.getItem('shiireFb');
+  if (!saved) return;
+  try { await navigator.clipboard.writeText(saved); }
+  catch (_) { download('仕入れ管理_同期設定.json', saved, 'application/json'); }
+  const msg = document.getElementById('setupMsg');
+  msg.className = 'setup-msg ok';
+  msg.textContent = 'コピーしました。他の端末の同じ欄に貼り付けて「接続する」を押してください。';
+};
+
+document.getElementById('setupDisconnect').onclick = () => {
+  if (!confirm('この端末での同期を解除します（クラウドのデータは消えません）。よろしいですか？')) return;
+  localStorage.removeItem('shiireFb');
+  if (cloudUnsub) { cloudUnsub(); cloudUnsub = null; }
+  storeMode = 'local';
+  setSync('local');
+  setupOverlay.classList.remove('show');
+  render();
+};
+
+setupOverlay.addEventListener('click', e => { if (e.target === setupOverlay) setupOverlay.classList.remove('show'); });
+
+// ---- 起動 ----
+(async () => {
+  await idbOpen();
+  render();
+  const saved = localStorage.getItem('shiireFb');
+  if (saved) {
+    try {
+      const { config, syncCode } = JSON.parse(saved);
+      await initCloud(config, syncCode);
+    } catch (_) { setSync('error'); }
+  } else {
+    setSync('local');
+  }
+})();
+</script>
+</body>
+</html>
