@@ -108,6 +108,8 @@
     display: flex; align-items: center; justify-content: center;
     color: #b7bdc7; font-size: 11px;
   }
+  .item .thumb.no-photo { flex-direction: column; gap: 3px; }
+  .item .thumb.no-photo .ph-emoji { font-size: 26px; }
   .item .body { flex: 1; padding: 12px 14px; min-width: 0; }
   .item .name { font-weight: 700; font-size: 15px; margin: 0 0 3px; word-break: break-word; }
   .item .meta { font-size: 12px; color: var(--sub); }
@@ -221,17 +223,17 @@
     </div>
   </div>
   <div class="stats">
-    <div class="stat stock"><div class="label">在庫数</div><div class="val" id="s-stock">0</div></div>
-    <div class="stat cost"><div class="label">仕入合計</div><div class="val small" id="s-cost">¥0</div></div>
-    <div class="stat sales"><div class="label">売上合計</div><div class="val small" id="s-sales">¥0</div></div>
-    <div class="stat profit"><div class="label">利益合計</div><div class="val small" id="s-profit">¥0</div></div>
+    <div class="stat stock"><div class="label">📦 在庫数</div><div class="val" id="s-stock">0</div></div>
+    <div class="stat cost"><div class="label">🛒 仕入合計</div><div class="val small" id="s-cost">¥0</div></div>
+    <div class="stat sales"><div class="label">💰 売上合計</div><div class="val small" id="s-sales">¥0</div></div>
+    <div class="stat profit"><div class="label">📈 利益合計</div><div class="val small" id="s-profit">¥0</div></div>
   </div>
 </header>
 
 <div class="tabs">
-  <div class="tab active" data-f="all">すべて</div>
-  <div class="tab" data-f="stock">在庫</div>
-  <div class="tab" data-f="sold">販売済み</div>
+  <div class="tab active" data-f="all">📋 すべて</div>
+  <div class="tab" data-f="stock">📦 在庫</div>
+  <div class="tab" data-f="sold">✅ 販売済み</div>
 </div>
 
 <main id="list"></main>
@@ -243,31 +245,31 @@
   <div class="sheet">
     <h2 id="editTitle">仕入れを追加</h2>
     <label class="photo-picker" id="picker">
-      <div class="ph" id="pickerPh">＋ 写真を撮る / 選ぶ</div>
+      <div class="ph" id="pickerPh">📷 写真を撮る / 選ぶ</div>
       <img id="pickerImg" style="display:none">
       <input type="file" id="photo" accept="image/*">
     </label>
     <label class="field">
-      <span class="l">商品名</span>
+      <span class="l">🏷️ 商品名</span>
       <input type="text" id="f-name" placeholder="例：ヴィンテージ食器">
     </label>
     <div class="row2">
       <label class="field">
-        <span class="l">仕入れ日</span>
+        <span class="l">📅 仕入れ日</span>
         <input type="date" id="f-buydate">
       </label>
       <label class="field">
-        <span class="l">仕入れ値（円）</span>
+        <span class="l">🛒 仕入れ値（円）</span>
         <input type="number" id="f-buyprice" inputmode="numeric" placeholder="0">
       </label>
     </div>
     <label class="field">
-      <span class="l">メモ（仕入先など・任意）</span>
+      <span class="l">📝 メモ（仕入先など・任意）</span>
       <textarea id="f-memo" placeholder="任意"></textarea>
     </label>
     <div class="sheet-actions">
       <button class="btn ghost" id="editCancel">キャンセル</button>
-      <button class="btn primary" id="editSave">保存</button>
+      <button class="btn primary" id="editSave">💾 保存</button>
     </div>
   </div>
 </div>
@@ -275,24 +277,24 @@
 <!-- 販売シート -->
 <div class="overlay" id="sellOverlay">
   <div class="sheet">
-    <h2>販売を記録</h2>
+    <h2>💰 販売を記録</h2>
     <div class="row2">
       <label class="field">
-        <span class="l">販売日</span>
+        <span class="l">📅 販売日</span>
         <input type="date" id="s-selldate">
       </label>
       <label class="field">
-        <span class="l">販売価格（円）</span>
+        <span class="l">💰 販売価格（円）</span>
         <input type="number" id="s-sellprice" inputmode="numeric" placeholder="0">
       </label>
     </div>
     <label class="field">
-      <span class="l">その他経費（送料・手数料など・任意）</span>
+      <span class="l">🚚 その他経費（送料・手数料など・任意）</span>
       <input type="number" id="s-fee" inputmode="numeric" placeholder="0">
     </label>
     <div class="sheet-actions">
       <button class="btn ghost" id="sellCancel">キャンセル</button>
-      <button class="btn primary" id="sellSave">販売済みにする</button>
+      <button class="btn primary" id="sellSave">✅ 販売済みにする</button>
     </div>
   </div>
 </div>
@@ -495,7 +497,8 @@ async function render() {
 
   if (!shown.length) {
     list.innerHTML = '<div class="empty">' +
-      (items.length ? 'この条件の商品はありません' : '右下の＋から仕入れを追加しましょう') + '</div>';
+      (items.length ? '🔍 この条件の商品はありません'
+                    : '📦 右下の ＋ から仕入れを追加しましょう') + '</div>';
     return;
   }
 
@@ -506,31 +509,31 @@ async function render() {
     el.className = 'item ' + (it.sold ? 'is-sold' : 'is-stock');
     const thumb = it.photo
       ? `<div class="thumb" style="background-image:url('${it.photo}')" data-view="${it.id}"></div>`
-      : `<div class="thumb">写真なし</div>`;
+      : `<div class="thumb no-photo"><span class="ph-emoji">📷</span>写真なし</div>`;
 
-    let figs = `<div class="f"><div class="k">仕入れ値</div><div class="v">${yen(it.buyprice)}</div></div>`;
+    let figs = `<div class="f"><div class="k">🛒 仕入れ値</div><div class="v">${yen(it.buyprice)}</div></div>`;
     if (it.sold) {
-      figs += `<div class="f"><div class="k">販売価格</div><div class="v">${yen(it.sellprice)}</div></div>`;
-      if (Number(it.fee)) figs += `<div class="f"><div class="k">経費</div><div class="v">${yen(it.fee)}</div></div>`;
-      figs += `<div class="f profit-chip ${p<0?'is-neg':'is-pos'}"><div class="k">利益</div><div class="v">${yen(p)}</div></div>`;
+      figs += `<div class="f"><div class="k">💰 販売価格</div><div class="v">${yen(it.sellprice)}</div></div>`;
+      if (Number(it.fee)) figs += `<div class="f"><div class="k">🚚 経費</div><div class="v">${yen(it.fee)}</div></div>`;
+      figs += `<div class="f profit-chip ${p<0?'is-neg':'is-pos'}"><div class="k">${p<0?'📉 損益':'📈 利益'}</div><div class="v">${yen(p)}</div></div>`;
     }
 
     const meta = it.sold
-      ? `仕入 ${fmtDate(it.buydate)} → 販売 ${fmtDate(it.selldate)}`
-      : `仕入れ日 ${fmtDate(it.buydate)}`;
+      ? `📅 ${fmtDate(it.buydate)} 仕入 → ${fmtDate(it.selldate)} 販売`
+      : `📅 ${fmtDate(it.buydate)} 仕入`;
 
     el.innerHTML = thumb + `<div class="body">
-      <span class="badge ${it.sold?'sold':'stock'}">${it.sold?'販売済み':'在庫'}</span>
+      <span class="badge ${it.sold?'sold':'stock'}">${it.sold?'✅ 販売済み':'📦 在庫'}</span>
       <p class="name">${escapeHtml(it.name||'（名称未設定）')}</p>
       <div class="meta">${meta}</div>
-      ${it.memo?`<div class="memo">${escapeHtml(it.memo)}</div>`:''}
+      ${it.memo?`<div class="memo">📝 ${escapeHtml(it.memo)}</div>`:''}
       <div class="figs">${figs}</div>
       <div class="actions">
         ${it.sold
-          ? `<button class="undo" data-undo="${it.id}">在庫に戻す</button>`
-          : `<button class="sell" data-sell="${it.id}">販売する</button>`}
-        <button data-edit="${it.id}">編集</button>
-        <button class="del" data-del="${it.id}">削除</button>
+          ? `<button class="undo" data-undo="${it.id}">↩️ 在庫に戻す</button>`
+          : `<button class="sell" data-sell="${it.id}">💰 販売する</button>`}
+        <button data-edit="${it.id}">✏️ 編集</button>
+        <button class="del" data-del="${it.id}">🗑️ 削除</button>
       </div>
     </div>`;
     list.appendChild(el);
@@ -544,7 +547,7 @@ const editOverlay = document.getElementById('editOverlay');
 function openEdit(item) {
   editingId = item ? item.id : null;
   pendingPhoto = item ? item.photo : null;
-  document.getElementById('editTitle').textContent = item ? '仕入れを編集' : '仕入れを追加';
+  document.getElementById('editTitle').textContent = item ? '✏️ 仕入れを編集' : '🛒 仕入れを追加';
   document.getElementById('f-name').value = item ? (item.name||'') : '';
   document.getElementById('f-buydate').value = item ? item.buydate : today();
   document.getElementById('f-buyprice').value = item ? item.buyprice : '';
