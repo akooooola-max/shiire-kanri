@@ -6,12 +6,14 @@
 <title>仕入れ管理</title>
 <style>
   :root {
-    --bg: #f5f6f8;
+    --bg: #fbf4f8;
     --card: #ffffff;
     --line: #e6e8ec;
     --text: #1c2430;
     --sub: #6b7683;
-    --accent: #5b6ef5;
+    --accent: #d96aa3;         /* 薄ピンク（ボタン等・白文字が読める濃さ） */
+    --accent-bg: #fdeaf3;      /* もっと薄いピンク（背景の淡い色） */
+    --accent-line: #f6cfe0;    /* ピンクの枠線 */
     --green: #17a673;
     --red: #e05656;
     --amber: #e0932e;
@@ -73,7 +75,7 @@
   .stat .val { font-size: 15px; font-weight: 700; margin-top: 2px; white-space: nowrap; }
   .stat .val.small { font-size: 13px; }
   /* 集計カードを色で区別 */
-  .stat.stock  { background: #eef1ff; border-color: #d7ddff; }
+  .stat.stock  { background: var(--accent-bg); border-color: var(--accent-line); }
   .stat.stock  .val { color: var(--accent); }
   .stat.cost   { background: #fff3e6; border-color: #ffe1c2; }
   .stat.cost   .val { color: var(--amber); }
@@ -118,7 +120,7 @@
     display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px;
     border-radius: 999px; margin-bottom: 6px;
   }
-  .badge.stock { background: #eef1ff; color: var(--accent); }
+  .badge.stock { background: var(--accent-bg); color: var(--accent); }
   .badge.sold { background: #e7f6ef; color: var(--green); }
 
   .figs { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; }
@@ -148,7 +150,7 @@
     position: fixed; right: 20px; bottom: 22px; z-index: 30;
     width: 58px; height: 58px; border-radius: 50%; border: none;
     background: var(--accent); color: #fff; font-size: 30px; line-height: 58px;
-    box-shadow: 0 6px 20px rgba(91,110,245,.45); cursor: pointer;
+    box-shadow: 0 6px 20px rgba(217,106,163,.45); cursor: pointer;
   }
 
   /* modal */
