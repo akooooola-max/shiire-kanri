@@ -36,7 +36,8 @@
   }
   header h1 { margin: 0; font-size: 19px; letter-spacing: .02em; }
   .titlebar { display: flex; align-items: center; justify-content: space-between; }
-  .title-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .title-left { display: flex; align-items: center; flex-wrap: wrap; }
+  .title-left > * + * { margin-left: 10px; }
   .sync-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
   .sync-badge.local { background: #eef0f4; color: var(--sub); }
   .sync-badge.connecting { background: #fff3e6; color: var(--amber); }
@@ -85,13 +86,14 @@
   .stat.profit .val { color: var(--green); }
 
   .tabs {
-    display: flex; gap: 6px; padding: 12px 18px 0; max-width: 720px; margin: 0 auto;
+    display: flex; padding: 12px 18px 0; max-width: 720px; margin: 0 auto;
   }
   .tab {
-    flex: 1; text-align: center; padding: 8px 0; font-size: 13px; font-weight: 600;
+    flex: 1; text-align: center; padding: 8px 4px; font-size: 13px; font-weight: 600; white-space: nowrap;
     color: var(--sub); background: var(--card); border: 1px solid var(--line);
     border-radius: 10px; cursor: pointer; user-select: none;
   }
+  .tab + .tab { margin-left: 6px; }
   .tab.active { color: #fff; background: var(--accent); border-color: var(--accent); }
 
   main { max-width: 720px; margin: 0 auto; padding: 14px 18px; }
@@ -123,8 +125,10 @@
   .badge.stock { background: var(--accent-bg); color: var(--accent); }
   .badge.sold { background: #e7f6ef; color: var(--green); }
 
-  .figs { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; }
-  .figs .f .k { font-size: 10.5px; color: var(--sub); }
+  .figs { display: flex; flex-wrap: wrap; margin-top: 8px; font-size: 13px; }
+  .figs .f { margin: 0 16px 6px 0; }
+  .figs .f:last-child { margin-right: 0; }
+  .figs .f .k { font-size: 10.5px; color: var(--sub); white-space: nowrap; }
   .figs .f .v { font-weight: 700; }
   .figs .f .v.pos { color: var(--green); }
   .figs .f .v.neg { color: var(--red); }
@@ -135,9 +139,10 @@
   .profit-chip.is-neg { background: #fdeaea; }
   .profit-chip.is-neg .v { color: var(--red); }
 
-  .actions { display: flex; gap: 8px; margin-top: 11px; }
+  .actions { display: flex; flex-wrap: wrap; margin-top: 11px; }
   .actions button {
-    font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px; white-space: nowrap;
+    margin: 0 8px 8px 0;
     border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer;
   }
   .actions button.sell { background: var(--green); color: #fff; border-color: var(--green); }
@@ -179,9 +184,11 @@
   .photo-picker .ph { padding: 26px 10px; color: var(--sub); font-size: 13px; }
   .photo-picker img { width: 100%; display: block; max-height: 240px; object-fit: cover; }
   .photo-picker input { display: none; }
-  .row2 { display: flex; gap: 12px; }
+  .row2 { display: flex; }
   .row2 > * { flex: 1; }
-  .sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
+  .row2 > * + * { margin-left: 12px; }
+  .sheet-actions { display: flex; margin-top: 6px; }
+  .sheet-actions > * + * { margin-left: 10px; }
   .btn {
     flex: 1; padding: 14px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700;
     cursor: pointer;
