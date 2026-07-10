@@ -176,9 +176,12 @@
   label.field { display: block; margin-bottom: 14px; }
   label.field .l { font-size: 12.5px; color: var(--sub); font-weight: 600; margin-bottom: 5px; display: block; }
   input, textarea {
-    width: 100%; font-size: 16px; font-family: inherit; color: var(--text);
+    width: 100%; min-width: 0; max-width: 100%; font-size: 16px; font-family: inherit; color: var(--text);
     padding: 11px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--bg);
+    box-sizing: border-box; -webkit-appearance: none; appearance: none;
   }
+  /* iPhoneの日付欄が横に広がって隣に重なるのを防ぐ */
+  input[type="date"] { min-height: 46px; }
   textarea { resize: vertical; min-height: 60px; }
   .photo-picker {
     border: 1.5px dashed var(--line); border-radius: 14px; padding: 0; overflow: hidden;
@@ -188,8 +191,13 @@
   .photo-picker img { width: 100%; display: block; max-height: 240px; object-fit: cover; }
   .photo-picker input { display: none; }
   .row2 { display: flex; }
-  .row2 > * { flex: 1; }
+  .row2 > * { flex: 1; min-width: 0; }
   .row2 > * + * { margin-left: 12px; }
+  /* 狭い画面（スマホ）では縦並びにして重なりを完全に防ぐ */
+  @media (max-width: 430px) {
+    .row2 { display: block; }
+    .row2 > * + * { margin-left: 0; }
+  }
   .sheet-actions { display: flex; margin-top: 6px; }
   .sheet-actions > * + * { margin-left: 10px; }
   .btn {
