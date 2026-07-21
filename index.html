@@ -183,13 +183,26 @@
   /* iPhoneの日付欄が横に広がって隣に重なるのを防ぐ */
   input[type="date"] { min-height: 46px; }
   textarea { resize: vertical; min-height: 60px; }
-  .photo-picker {
-    border: 1.5px dashed var(--line); border-radius: 14px; padding: 0; overflow: hidden;
-    background: var(--bg); text-align: center; cursor: pointer; position: relative;
+  .photos-field { margin-bottom: 14px; }
+  .photos-field .l { font-size: 12.5px; color: var(--sub); font-weight: 600; margin-bottom: 5px; display: block; }
+  .photo-strip { display: flex; flex-wrap: wrap; }
+  .photo-tile, .photo-add {
+    width: 82px; height: 82px; border-radius: 12px; margin: 0 8px 8px 0; overflow: hidden;
+    background: var(--bg); position: relative;
   }
-  .photo-picker .ph { padding: 26px 10px; color: var(--sub); font-size: 13px; }
-  .photo-picker img { width: 100%; display: block; max-height: 240px; object-fit: cover; }
-  .photo-picker input { display: none; }
+  .photo-tile { border: 1px solid var(--line); }
+  .photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-tile .rm {
+    position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; padding: 0;
+    border: none; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff;
+    font-size: 15px; line-height: 24px; cursor: pointer; margin: 0;
+  }
+  .photo-add {
+    border: 1.5px dashed var(--accent-line); color: var(--accent); cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; line-height: 1.3;
+  }
+  .photo-add .plus { font-size: 22px; }
   .row2 { display: flex; }
   .row2 > * { flex: 1; min-width: 0; }
   .row2 > * + * { margin-left: 12px; }
@@ -223,6 +236,26 @@
   }
   .viewer.show { display: flex; }
   .viewer img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+  .viewer .nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 46px; height: 46px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,.22); color: #fff; font-size: 26px; line-height: 1;
+    cursor: pointer; display: none;
+  }
+  .viewer .nav.prev { left: 10px; }
+  .viewer .nav.next { right: 10px; }
+  .viewer.multi .nav { display: block; }
+  .viewer .counter {
+    position: absolute; bottom: 26px; left: 0; right: 0; text-align: center;
+    color: #fff; font-size: 13px; font-weight: 600; display: none;
+  }
+  .viewer.multi .counter { display: block; }
+  /* 一覧サムネの「複数枚」バッジ */
+  .item .thumb { position: relative; }
+  .item .thumb .count {
+    position: absolute; right: 5px; bottom: 5px; background: rgba(0,0,0,.62); color: #fff;
+    font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+  }
 </style>
 </head>
 <body>
@@ -264,11 +297,11 @@
 <div class="overlay" id="editOverlay">
   <div class="sheet">
     <h2 id="editTitle">仕入れを追加</h2>
-    <label class="photo-picker" id="picker">
-      <div class="ph" id="pickerPh">📷 写真を撮る / 選ぶ</div>
-      <img id="pickerImg" style="display:none">
-      <input type="file" id="photo" accept="image/*">
-    </label>
+    <div class="photos-field">
+      <span class="l">📷 写真（何枚でも追加できます）</span>
+      <div class="photo-strip" id="photoStrip"></div>
+      <input type="file" id="photo" accept="image/*" multiple style="display:none">
+    </div>
     <label class="field">
       <span class="l">🏷️ 商品名</span>
       <input type="text" id="f-name" placeholder="例：ヴィンテージ食器">
@@ -319,7 +352,12 @@
   </div>
 </div>
 
-<div class="viewer" id="viewer"><img id="viewerImg"></div>
+<div class="viewer" id="viewer">
+  <img id="viewerImg">
+  <button class="nav prev" id="viewerPrev">‹</button>
+  <button class="nav next" id="viewerNext">›</button>
+  <div class="counter" id="viewerCounter"></div>
+</div>
 <input type="file" id="restoreFile" accept="application/json,.json" style="display:none">
 
 <!-- 同期設定シート -->
@@ -369,7 +407,14 @@ service cloud.firestore {
 
 <script>
 const DB_NAME = 'shiireDB', STORE = 'items';
-let db, editingId = null, sellingId = null, pendingPhoto = null, filter = 'all';
+let db, editingId = null, sellingId = null, pendingPhotos = [], filter = 'all';
+
+// 古いデータ（photo=1枚）と新しいデータ（photos=複数枚）の両方に対応
+function getPhotos(item) {
+  if (!item) return [];
+  if (Array.isArray(item.photos)) return item.photos.filter(Boolean);
+  return item.photo ? [item.photo] : [];
+}
 
 const yen = n => '¥' + (Number(n)||0).toLocaleString('ja-JP');
 const today = () => new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD ローカル
@@ -487,7 +532,8 @@ function resizeImage(file, max = 1000) {
       const c = document.createElement('canvas');
       c.width = w; c.height = h;
       c.getContext('2d').drawImage(img, 0, 0, w, h);
-      res(c.toDataURL('image/jpeg', 0.82));
+      URL.revokeObjectURL(img.src);
+      res(c.toDataURL('image/jpeg', 0.78));
     };
     img.src = URL.createObjectURL(file);
   });
@@ -527,8 +573,10 @@ async function render() {
     const p = (Number(it.sellprice)||0) - (Number(it.buyprice)||0) - (Number(it.fee)||0);
     const el = document.createElement('div');
     el.className = 'item ' + (it.sold ? 'is-sold' : 'is-stock');
-    const thumb = it.photo
-      ? `<div class="thumb" style="background-image:url('${it.photo}')" data-view="${it.id}"></div>`
+    const pics = getPhotos(it);
+    const thumb = pics.length
+      ? `<div class="thumb" style="background-image:url('${pics[0]}')" data-view="${it.id}">${
+           pics.length > 1 ? `<span class="count">📷 ${pics.length}枚</span>` : ''}</div>`
       : `<div class="thumb no-photo"><span class="ph-emoji">📷</span>写真なし</div>`;
 
     let figs = `<div class="f"><div class="k">🛒 仕入れ値</div><div class="v">${yen(it.buyprice)}</div></div>`;
@@ -566,32 +614,56 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 const editOverlay = document.getElementById('editOverlay');
 function openEdit(item) {
   editingId = item ? item.id : null;
-  pendingPhoto = item ? item.photo : null;
+  pendingPhotos = getPhotos(item);
   document.getElementById('editTitle').textContent = item ? '✏️ 仕入れを編集' : '🛒 仕入れを追加';
   document.getElementById('f-name').value = item ? (item.name||'') : '';
   document.getElementById('f-buydate').value = item ? item.buydate : today();
   document.getElementById('f-buyprice').value = item ? item.buyprice : '';
   document.getElementById('f-memo').value = item ? (item.memo||'') : '';
-  setPickerImg(pendingPhoto);
+  renderStrip();
   editOverlay.classList.add('show');
 }
-function setPickerImg(src) {
-  const img = document.getElementById('pickerImg'), ph = document.getElementById('pickerPh');
-  if (src) { img.src = src; img.style.display = 'block'; ph.style.display = 'none'; }
-  else { img.style.display = 'none'; ph.style.display = 'block'; }
+
+// 選んだ写真の一覧（サムネ＋削除ボタン＋追加ボタン）を描く
+function renderStrip() {
+  const strip = document.getElementById('photoStrip');
+  strip.innerHTML = '';
+  pendingPhotos.forEach((src, i) => {
+    const tile = document.createElement('div');
+    tile.className = 'photo-tile';
+    tile.innerHTML = `<img src="${src}"><button type="button" class="rm" data-rm="${i}">×</button>`;
+    strip.appendChild(tile);
+  });
+  const add = document.createElement('div');
+  add.className = 'photo-add';
+  add.id = 'photoAdd';
+  add.innerHTML = '<span class="plus">＋</span>写真を追加';
+  strip.appendChild(add);
 }
+
+document.getElementById('photoStrip').addEventListener('click', e => {
+  const rm = e.target.dataset && e.target.dataset.rm;
+  if (rm !== undefined) { pendingPhotos.splice(Number(rm), 1); renderStrip(); return; }
+  if (e.target.closest('#photoAdd')) document.getElementById('photo').click();
+});
+
 document.getElementById('photo').addEventListener('change', async e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  pendingPhoto = await resizeImage(file);
-  setPickerImg(pendingPhoto);
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  const add = document.getElementById('photoAdd');
+  if (add) add.innerHTML = '<span class="plus">⏳</span>読込中';
+  for (const file of files) {
+    try { pendingPhotos.push(await resizeImage(file)); } catch (_) {}
+  }
+  renderStrip();
+  e.target.value = '';   // 同じ写真をもう一度選べるようにする
 });
 document.getElementById('fab').onclick = () => openEdit(null);
 document.getElementById('editCancel').onclick = () => editOverlay.classList.remove('show');
 document.getElementById('editSave').onclick = async () => {
   const name = document.getElementById('f-name').value.trim();
   const buyprice = document.getElementById('f-buyprice').value;
-  if (!name && !buyprice && !pendingPhoto) { editOverlay.classList.remove('show'); return; }
+  if (!name && !buyprice && !pendingPhotos.length) { editOverlay.classList.remove('show'); return; }
   const base = editingId ? (await getAll()).find(i => i.id === editingId) : {};
   const item = {
     id: editingId || Date.now(),
@@ -599,12 +671,18 @@ document.getElementById('editSave').onclick = async () => {
     buydate: document.getElementById('f-buydate').value || today(),
     buyprice: Number(buyprice) || 0,
     memo: document.getElementById('f-memo').value.trim(),
-    photo: pendingPhoto,
+    photos: pendingPhotos.slice(),
+    photo: null,                       // 旧形式（1枚）は使わない
     sold: base.sold || false,
     selldate: base.selldate || null,
     sellprice: base.sellprice || null,
     fee: base.fee || 0,
   };
+  // クラウド同期中は1件あたり約1MBまで。超えそうなら知らせる
+  if (storeMode === 'cloud' && JSON.stringify(item).length > 950000) {
+    alert('写真が多すぎて同期できません。枚数を減らして保存してください。');
+    return;
+  }
   await put(item);
   editOverlay.classList.remove('show');
   render();
@@ -646,15 +724,44 @@ document.getElementById('list').addEventListener('click', async e => {
     if (confirm('この商品を削除しますか？')) { await del(Number(t.dataset.del)); render(); }
     return;
   }
-  if (t.dataset.view) {
-    const item = (await getAll()).find(i => i.id === Number(t.dataset.view));
-    if (item && item.photo) {
-      document.getElementById('viewerImg').src = item.photo;
-      document.getElementById('viewer').classList.add('show');
-    }
+  const viewEl = t.closest && t.closest('[data-view]');
+  if (viewEl) {
+    const item = (await getAll()).find(i => i.id === Number(viewEl.dataset.view));
+    const pics = getPhotos(item);
+    if (pics.length) openViewer(pics, 0);
   }
 });
-document.getElementById('viewer').onclick = () => document.getElementById('viewer').classList.remove('show');
+
+// ---- 写真ビューア（複数枚めくれる）----
+let viewerPics = [], viewerIdx = 0;
+const viewerEl = document.getElementById('viewer');
+function openViewer(pics, idx) {
+  viewerPics = pics; viewerIdx = idx;
+  viewerEl.classList.toggle('multi', pics.length > 1);
+  showViewerPic();
+  viewerEl.classList.add('show');
+}
+function showViewerPic() {
+  document.getElementById('viewerImg').src = viewerPics[viewerIdx];
+  document.getElementById('viewerCounter').textContent = `${viewerIdx + 1} / ${viewerPics.length}`;
+}
+function stepViewer(d) {
+  viewerIdx = (viewerIdx + d + viewerPics.length) % viewerPics.length;
+  showViewerPic();
+}
+document.getElementById('viewerPrev').onclick = e => { e.stopPropagation(); stepViewer(-1); };
+document.getElementById('viewerNext').onclick = e => { e.stopPropagation(); stepViewer(1); };
+document.getElementById('viewerImg').onclick = e => e.stopPropagation();
+viewerEl.onclick = () => viewerEl.classList.remove('show');
+// スワイプでめくる
+let touchX = null;
+viewerEl.addEventListener('touchstart', e => { touchX = e.changedTouches[0].clientX; }, { passive: true });
+viewerEl.addEventListener('touchend', e => {
+  if (touchX === null || viewerPics.length < 2) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx) > 40) stepViewer(dx < 0 ? 1 : -1);
+  touchX = null;
+}, { passive: true });
 
 // タブ
 document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => {
